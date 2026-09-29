@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Line Discrepancies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F4F8; --card:#FFFFFF; --cardHead:#F7F8FB; --line:#E1E4EC; --rowHover:#F5F6FA;
+  --text:#141826; --muted:#5F6680; --chipBg:#E4E9FB; --chipText:#2F4FD1;
+  --pp:#7B12F5; --ud:#B08A0C; --diff:#15803D; --diffZero:#5C8A6B; --accent:#7B12F5;
+  --ctl:#EDEFF5; --ctlOn:#7B12F5; --warnBg:#FDE9E6; --warnLine:#F2B8AF; --warnText:#8A2419;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#111624; --card:#0F1322; --cardHead:#121729; --line:#232A3F; --rowHover:#151B2E;
+    --text:#F2F4FA; --muted:#9AA3BD; --chipBg:#1B2550; --chipText:#6F8BFF;
+    --pp:#8B12FF; --ud:#B38A0B; --diff:#15803D; --diffZero:#2F6B45; --accent:#8B2BE2;
+    --ctl:#1E2436; --ctlOn:#8B2BE2; --warnBg:#3A1E22; --warnLine:#6B2E33; --warnText:#FFD2CC;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111624; --card:#0F1322; --cardHead:#121729; --line:#232A3F; --rowHover:#151B2E;
+  --text:#F2F4FA; --muted:#9AA3BD; --chipBg:#1B2550; --chipText:#6F8BFF;
+  --pp:#8B12FF; --ud:#B38A0B; --diff:#15803D; --diffZero:#2F6B45; --accent:#8B2BE2;
+  --ctl:#1E2436; --ctlOn:#8B2BE2; --warnBg:#3A1E22; --warnLine:#6B2E33; --warnText:#FFD2CC;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,sans-serif;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1380px;margin:0 auto;padding:22px 20px 48px}
+
+/* header */
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+h1{font-size:25px;font-weight:800;letter-spacing:-.4px;margin:0}
+.sub{color:var(--muted);margin-top:8px}
+.right{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.ctrls{display:flex;gap:8px}
+.seg{display:inline-flex;background:var(--ctl);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:none;min-width:40px;height:38px;padding:0 12px;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ctlOn);color:#fff}
+.btn{display:inline-flex;align-items:center;gap:7px;height:38px;border:0;border-radius:8px;background:var(--ctl);padding:0 14px;font-weight:600;text-decoration:none;white-space:nowrap}
+.btn svg{width:16px;height:16px}
+.upd{color:var(--muted);font-size:13px;text-align:right}
+.linkbtn{border:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline;padding:0}
+
+/* panels */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.panel[hidden]{display:none}
+.panel h2{font-size:15px;margin:0 0 6px}
+.steps{color:var(--muted);font-size:13px;line-height:1.55;margin:6px 0 10px;padding-left:18px}
+.srcs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.src{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.src .t{font-weight:700}.src .s{color:var(--muted);font-size:12px;margin-top:2px}
+.src.pp .t{color:var(--pp)}.src.ud .t{color:var(--ud)}
+textarea{width:100%;min-height:80px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical;font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.msg{font-size:13px;color:var(--muted)}.msg.bad{color:var(--warnText)}
+.filebtn input{display:none}
+select.plain{height:38px;border:0;border-radius:8px;background:var(--ctl);padding:0 10px}
+#aliasBox{font-family:ui-monospace,Menlo,monospace}
+
+/* table card */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--cardHead)}
+.toolbar select,.toolbar input{height:32px;border:1px solid var(--line);border-radius:7px;background:var(--card);padding:0 9px;font-size:13px;font-weight:600}
+.toolbar input[type=search]{width:190px;font-weight:500}
+.toolbar input[type=number]{width:62px}
+.toolbar label{color:var(--muted);font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.toolbar .seg button{height:32px;font-size:12px;min-width:0}
+.tabs{display:flex;gap:4px;margin-left:auto}
+.tabs button{white-space:nowrap;flex:none;border:0;background:none;height:32px;padding:0 10px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--ctl);color:var(--text)}
+
+.grid{display:grid;grid-template-columns:minmax(170px,2.6fr) minmax(130px,2fr) 110px 120px 120px;align-items:center}
+.head{padding:0 24px;height:48px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px}
+.head button{white-space:nowrap;border:0;background:none;font-weight:700;padding:6px 4px;border-radius:6px;display:inline-flex;align-items:center;gap:5px}
+.head .c{text-align:center;display:flex;justify-content:center}
+.head .arrow{color:var(--accent);font-size:11px;min-width:8px}
+.logo{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff}
+.logo.pp{background:var(--pp)}.logo.ud{background:var(--ud)}
+.r{padding:15px 24px;border-bottom:1px solid var(--line)}
+.r:hover{background:var(--rowHover)}
+.r:last-child{border-bottom:0}
+.who{min-width:0}
+.nm{display:flex;align-items:center;gap:9px;min-width:0}
+.nm b{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{flex:none;background:var(--chipBg);color:var(--chipText);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600}
+.mt{color:var(--text);opacity:.85;font-size:12.5px;font-weight:500;margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}
+.mt i{font-style:normal;color:var(--muted)}
+.prop{font-weight:600;font-size:13.5px}
+.prop small{display:block;color:var(--muted);font-weight:500;font-size:11.5px;margin-top:3px}
+.propM{display:none}
+.c{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.pill{min-width:36px;height:26px;padding:0 9px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:#fff;box-shadow:inset 0 0 0 2px transparent}
+.pill.pp{background:var(--pp)}
+.pill.ud{background:var(--ud)}
+.pill.diff{background:var(--diff);height:30px}
+.pill.diff.zero{background:var(--diffZero)}
+.pill.low{box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
+.mult{white-space:nowrap;font-size:10.5px;color:var(--muted);font-weight:600}
+.key{margin-top:6px;background:none;border:1px dashed var(--line);border-radius:6px;padding:2px 6px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted);text-align:left;overflow-wrap:anywhere}
+.empty{color:var(--muted);text-align:center;padding:50px 16px}
+.foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;padding:10px 4px}
+.banner{background:var(--warnBg);border:1px solid var(--warnLine);color:var(--warnText);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}
+
+/* phone */
+@media (max-width:760px){
+  .wrap{padding:16px 12px 40px}
+  .right{align-items:flex-start;width:100%}
+  .srcs{grid-template-columns:1fr}
+  .grid{grid-template-columns:minmax(0,1fr) 56px 64px 64px}
+  .head{padding:0 12px}.r{padding:13px 12px}
+  .colProp{display:none}
+  .propM{display:block;margin-top:5px}
+  .tabs{margin-left:0;width:100%;overflow-x:auto}
+  .toolbar input[type=search]{flex:1;width:auto;min-width:120px}
+  .pill{min-width:0;padding:0 7px;font-size:13.5px}
+  .head{font-size:12px}.head button{padding:4px 0;gap:3px}
+  .grid{grid-template-columns:minmax(0,1fr) 58px 60px 64px}
+  .mult{font-size:9.5px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Line Discrepancies</h1>
+      <div class="sub">Compare lines across PrizePicks and Underdog</div>
+    </div>
+    <div class="right">
+      <div class="ctrls">
+        <div class="seg" id="mode" aria-label="Show and sort gaps by">
+          <button data-v="num" aria-pressed="true" title="Raw difference">#</button>
+          <button data-v="pct" aria-pressed="false" title="Percent difference">%</button>
+        </div>
+        <button class="btn" id="toggleLoad">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          Refresh Lines
+        </button>
+        <button class="btn" id="toggleAlias" title="Merge fixes">Merge fixes</button>
+      </div>
+      <div class="upd"><span id="updated">Not loaded yet</span> <span id="autoNote"></span></div>
+      <button class="linkbtn" id="manual">Load manually</button>
+    </div>
+  </div>
+
+  <div id="banners"></div>
+
+  <section class="panel" id="loadPanel">
+    <h2>Load lines</h2>
+    <ol class="steps">
+      <li>Tap Open feed. The raw data opens in a new tab.</li>
+      <li>Select all, copy, come back, and paste below. It detects which app it is.</li>
+      <li>Do both apps. Repeat anytime to refresh.</li>
+    </ol>
+    <div class="srcs">
+      <div class="src pp">
+        <div><div class="t">PrizePicks</div><div class="s" id="ppStatus">Not loaded</div></div>
+        <a class="btn" target="_blank" rel="noopener" href="https://api.prizepicks.com/projections?per_page=10000&single_stat=true&game_mode=pickem">Open feed</a>
+      </div>
+      <div class="src ud">
+        <div><div class="t">Underdog</div><div class="s" id="udStatus">Not loaded</div></div>
+        <div class="actions" style="margin:0">
+          <select class="plain" id="udSport" aria-label="Underdog sport">
+            <option value="">All sports</option>
+            <option>ESPORTS</option><option>LOL</option><option>CS</option><option>VAL</option><option>DOTA</option>
+            <option>NFL</option><option>CFB</option><option>MLB</option><option>NBA</option><option>WNBA</option><option>NHL</option><option>SOCCER</option>
+          </select>
+          <a class="btn" id="udLink" target="_blank" rel="noopener" href="https://api.underdogfantasy.com/v1/over_under_lines">Open feed</a>
+        </div>
+      </div>
+    </div>
+    <textarea id="paste" placeholder="Paste a feed here" aria-label="Paste feed JSON"></textarea>
+    <div class="actions">
+      <label class="btn filebtn">Upload .json files<input type="file" id="file" accept=".json,application/json,text/plain" multiple></label>
+      <button class="btn" id="auto">Try auto-load</button>
+      <button class="btn" id="demo">Show demo</button>
+      <button class="btn" id="clear">Clear data</button>
+      <span class="msg" id="loadMsg"></span>
+    </div>
+  </section>
+
+  <section class="panel" id="aliasPanel" hidden>
+    <h2>Merge fixes <span class="msg" id="aliasCount">0 rules</span></h2>
+    <p class="msg" style="margin:4px 0 10px">One rule per line: <b>from =&gt; to</b>. Works on a player name, a stat, or a whole key. Tap any key in the unmatched views to start a rule.</p>
+    <textarea id="aliasBox" spellcheck="false" placeholder="gabe davis => gabriel davis&#10;fantasy pitcher => fantasy"></textarea>
+    <div class="actions"><button class="btn" id="aliasSave">Save and rematch</button><span class="msg" id="aliasMsg"></span></div>
+  </section>
+
+  <div class="card">
+    <div class="toolbar">
+      <select id="league" aria-label="League"><option value="ALL">ALL</option></select>
+      <div class="seg" id="scope">
+        <button data-v="esports" aria-pressed="true">Esports</button>
+        <button data-v="all" aria-pressed="false">All sports</button>
+      </div>
+      <input id="q" type="search" placeholder="Search player or prop" aria-label="Search">
+      <label>Min gap <input id="min" type="number" min="0" step="0.5" value="0"></label>
+      <div class="tabs" id="tabs">
+        <button data-v="matched" aria-pressed="true">Matched</button>
+        <button data-v="pp" aria-pressed="false">PrizePicks only</button>
+        <button data-v="ud" aria-pressed="false">Underdog only</button>
+      </div>
+    </div>
+    <div class="grid head" id="head"></div>
+    <div id="list"></div>
+  </div>
+  <div class="foot"><span>White outline marks the lower line (the over side).</span><span id="count"></span></div>
+</div>
+
+<script>
+/* Paste your Cloudflare Worker URL here, e.g. "https://line-gap.luke-blasig.workers.dev"
+   With it set, lines load automatically and refresh every 10 minutes.
+   Leave blank to use manual paste. */
+const WORKER_URL = "https://bitter-firefly-1a33.luke-blasig.workers.dev";
+const AUTO_MS = 10*60*1000;
+
+/* ---------- Esports league names (add more as you see them) ---------- */
+const ESPORTS = {
+  LOL:["lol","league of legends"], CS2:["cs2","csgo","cs","cs go","counter strike"],
+  VAL:["val","valorant"], DOTA2:["dota2","dota","dota 2"], COD:["cod","call of duty"],
+  R6:["r6","r6s","rainbow six","rainbow6","siege"], HALO:["halo"], RL:["rl","rocket league"],
+  APEX:["apex","apex legends"], ESPORTS:["esports","esport","e sports"]
+};
+const MAX_START_GAP_MS = 36*3600e3;
+
+/* ---------- Storage (safe if unavailable) ---------- */
+const store = {
+  get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch{ return false; } }
+};
+
+/* ---------- Normalizing ---------- */
+const compact = s => (s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const LEAGUE_LOOKUP = {};
+for(const [k,list] of Object.entries(ESPORTS)) for(const a of [k,...list]) LEAGUE_LOOKUP[compact(a)] = k;
+function canonLeague(raw){
+  const c = compact(raw);
+  return LEAGUE_LOOKUP[c] ? {league:LEAGUE_LOOKUP[c], esports:true} : {league:(raw||"?").toUpperCase(), esports:false};
+}
+function normName(s){
+  return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()
+    .replace(/[.'\u2019`]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\b(jr|sr|ii|iii|iv)\b/g,"").replace(/\s+/g," ").trim();
+}
+const SYN = {passing:"pass",rushing:"rush",receiving:"rec",yds:"yards",yd:"yards",yard:"yards",pts:"points",point:"points",
+  reb:"rebounds",rebs:"rebounds",ast:"assists",asts:"assists",maps:"map",touchdowns:"td",tds:"td",touchdown:"td",hs:"headshots",headshot:"headshots"};
+const STOP = new Set(["on","in","the","of","for","ou"]);
+function normStat(s){
+  const t = (s||"").toLowerCase()
+    .replace(/fantasy\s+(score|points|pts)/g,"fantasy")
+    .replace(/(\d+)\s*-\s*(\d+)/g,(m,a,b)=>{a=+a;b=+b; return (b>a&&b-a<10) ? Array.from({length:b-a+1},(_,i)=>a+i).join(" ") : `${a} ${b}`;})
+    .replace(/[^a-z0-9]+/g," ").trim();
+  const toks = t.split(" ").filter(Boolean).map(w=>SYN[w]||w).filter(w=>!STOP.has(w));
+  return [...new Set(toks)].sort().join(" ");
+}
+
+/* ---------- Parsers ---------- */
+function parsePP(j){
+  const inc = {};
+  for(const x of j.included||[]) inc[`${x.type}:${x.id}`] = x;
+  const out = [];
+  for(const p of j.data||[]){
+    if(p.type!=="projection") continue;
+    const a = p.attributes||{};
+    if((a.odds_type||"standard").toLowerCase()!=="standard") continue; // no demons/goblins
+    const rel = p.relationships||{};
+    const pl = inc[`new_player:${rel.new_player?.data?.id}`]?.attributes||{};
+    if(pl.combo) continue;
+    const line = parseFloat(a.line_score);
+    if(!Number.isFinite(line)) continue;
+    const match = pl.team && a.description ? `${pl.team} vs ${a.description}` : (a.description||pl.team||"");
+    out.push({ name:pl.display_name||pl.name||"", match, leagueRaw:inc[`league:${rel.league?.data?.id}`]?.attributes?.name||pl.league||"",
+      stat:a.stat_display_name||a.stat_type||"", line, start:a.start_time||null, promo:!!a.is_promo });
+  }
+  return out;
+}
+function findArr(j,key){
+  if(!j||typeof j!=="object") return null;
+  if(Array.isArray(j[key])) return j[key];
+  for(const v of Object.values(j)) if(v&&typeof v==="object"&&!Array.isArray(v)){ const r=findArr(v,key); if(r) return r; }
+  return null;
+}
+function parseUD(j){
+  const byId = arr => Object.fromEntries((arr||[]).map(x=>[x.id,x]));
+  const players=byId(findArr(j,"players")), apps=byId(findArr(j,"appearances")), games=byId(findArr(j,"games")), solo=byId(findArr(j,"solo_games"));
+  const out = [];
+  for(const l of findArr(j,"over_under_lines")||[]){
+    if(l.status && l.status!=="active") continue;
+    if(l.line_type && /alt/i.test(l.line_type)) continue;
+    const ou = l.over_under||{};
+    const as = ou.appearance_stat||{};
+    const ap = apps[as.appearance_id]||{};
+    const pl = players[ap.player_id]||{};
+    const g = (ap.match_type==="SoloGame"?solo:games)[ap.match_id]||{};
+    const statName = as.display_stat||as.stat||"";
+    let name = [pl.first_name,pl.last_name].filter(Boolean).join(" ").trim();
+    if(!name && ou.title){ // fallback: "Player Name Stat Name O/U"
+      name = ou.title.replace(/\s*O\/U\s*$/i,"");
+      if(statName && name.toLowerCase().endsWith(statName.toLowerCase())) name = name.slice(0,-statName.length);
+      name = name.trim();
+    }
+    if(!name) continue;
+    const line = parseFloat(l.stat_value);
+    if(!Number.isFinite(line)) continue;
+    const hi=(l.options||[]).find(o=>o.choice==="higher"), lo=(l.options||[]).find(o=>o.choice==="lower");
+    out.push({ id:l.id, name, match:g.abbreviated_title||g.title||"", leagueRaw:pl.sport_id||g.sport_id||ou.sport_id||l.sport_id||state.udSport||"",
+      stat:statName, line, start:g.scheduled_at||null,
+      overMult:hi?parseFloat(hi.payout_multiplier):null, underMult:lo?parseFloat(lo.payout_multiplier):null });
+  }
+  return out;
+}
+
+/* ---------- Aliases ---------- */
+let ALIAS = {};
+function parseAliases(text){
+  const m = {}; let n = 0;
+  for(const line of (text||"").split("\n")){
+    const parts = line.split("=>"); if(parts.length!==2) continue;
+    const from = parts[0].trim().toLowerCase(), to = parts[1].trim().toLowerCase();
+    if(from && to){ m[from]=to; n++; }
+  }
+  return {m,n};
+}
+function keyOf(r){
+  let n = normName(r.name); n = ALIAS[n]||n;
+  let s = normStat(r.stat); s = ALIAS[s]||s;
+  const k = `${n}|${s}`; return ALIAS[k]||k;
+}
+
+/* ---------- Matching ---------- */
+function prep(r){ const c=canonLeague(r.leagueRaw); return {...r, league:c.league, esports:c.esports, key:keyOf(r)}; }
+function pair(ppRows, udRows){
+  const pool = new Map();
+  for(const u of udRows){ if(!pool.has(u.key)) pool.set(u.key,[]); pool.get(u.key).push(u); }
+  const matched=[], ppOnly=[];
+  for(const p of ppRows){
+    const c = pool.get(p.key);
+    if(!c||!c.length){ ppOnly.push(p); continue; }
+    let best=-1, bestDt=Infinity;
+    c.forEach((u,i)=>{ let dt=(p.start&&u.start)?Math.abs(Date.parse(p.start)-Date.parse(u.start)):0; if(Number.isNaN(dt)) dt=0; if(dt<bestDt){bestDt=dt;best=i;} });
+    if(best<0||bestDt>MAX_START_GAP_MS){ ppOnly.push(p); continue; }
+    const u = c.splice(best,1)[0];
+    const diff = +(p.line-u.line).toFixed(2), avg=(p.line+u.line)/2;
+    matched.push({ player:p.name, league:p.league, match:p.match||u.match||"", stat:p.stat, udStat:u.stat, start:p.start||u.start, key:p.key,
+      pp:{line:p.line,promo:p.promo}, ud:{line:u.line,overMult:u.overMult,underMult:u.underMult},
+      diff, absDiff:Math.abs(diff), pct:avg?+(Math.abs(diff)/avg*100).toFixed(1):0, lowSide:diff<0?"pp":diff>0?"ud":null });
+  }
+  return { matched, ppOnly, udOnly:[...pool.values()].flat() };
+}
+
+
+
+/* ---------- State ---------- */
+const $ = s => document.querySelector(s);
+const state = { scope:"esports", mode:"num", sortKey:"diff", sortDir:-1, min:0, q:"", league:"ALL", view:"matched",
+  pp:null, ppAt:null, ud:null, udAt:null, udSport:"", result:{matched:[],ppOnly:[],udOnly:[]}, demo:false };
+
+function compute(){
+  let pp=(state.pp||[]).map(prep), ud=(state.ud||[]).map(prep);
+  if(state.scope==="esports"){ pp=pp.filter(r=>r.esports); ud=ud.filter(r=>r.esports); }
+  state.result = pair(pp, ud);
+}
+
+/* ---------- Loading ---------- */
+function setMsg(t,bad){ const m=$("#loadMsg"); m.textContent=t; m.className="msg"+(bad?" bad":""); }
+function ingest(text){
+  let j;
+  try{ j=JSON.parse(text); }catch{ setMsg("That isn't complete JSON. Copy the whole feed page and paste again.", true); return false; }
+  if(j && j.error){ const e=j.error, t=typeof e==="string"?e:(e.detail||e.title||JSON.stringify(e)); setMsg(`That feed returned an error: ${t}`, true); return false; }
+  if(j && Array.isArray(j.errors)){ setMsg(`That feed returned an error: ${j.errors[0]?.detail||j.errors[0]?.title||"unknown"}`, true); return false; }
+  if(state.demo){ state.pp=null; state.ud=null; }
+  state.demo=false;
+  if(findArr(j,"over_under_lines")){
+    const fresh=parseUD(j);
+    if(!fresh.length){ setMsg("Underdog feed loaded but no lines parsed. Send Claude the first chunk of it so the parser can be fixed.", true); return false; }
+    const ids=new Set(fresh.map(r=>r.id)), sports=new Set(fresh.map(r=>r.leagueRaw));
+    state.ud=[...(state.ud||[]).filter(r=>!ids.has(r.id)&&!sports.has(r.leagueRaw)), ...fresh];
+    state.udAt=Date.now(); store.set("lg:ud",{rows:state.ud,at:state.udAt});
+    setMsg(`Underdog loaded: ${fresh.length.toLocaleString()} lines (${state.ud.length.toLocaleString()} total)`);
+  } else if(Array.isArray(j.data) && j.data.some(x=>x.type==="projection")){
+    state.pp=parsePP(j); state.ppAt=Date.now(); store.set("lg:pp",{rows:state.pp,at:state.ppAt});
+    setMsg(`PrizePicks loaded: ${state.pp.length.toLocaleString()} standard lines`);
+  } else { setMsg("This doesn't look like either feed. Use the Open feed buttons.", true); return false; }
+  compute(); render(); return true;
+}
+let autoTimer=null, workerBusy=false;
+async function loadFromWorker(fresh){
+  if(!WORKER_URL || workerBusy) return;
+  workerBusy=true; $("#autoNote").textContent="(updating...)";
+  try{
+    const r=await fetch(`${WORKER_URL.replace(/\/$/,"")}/lines${fresh?"?fresh=1":""}`,{cache:"no-store"});
+    const j=await r.json();
+    if(!r.ok||j.error) throw new Error(j.error||`HTTP ${r.status}`);
+    state.demo=false;
+    if(j.pp){ state.pp=j.pp; state.ppAt=j.ppAt; }
+    if(j.ud){ state.ud=j.ud; state.udAt=j.udAt; }
+    state.workerErrors=j.errors||{}; state.workerFail=null;
+    compute(); render();
+  }catch(e){
+    state.workerFail=String(e.message||e); render();
+  }finally{
+    workerBusy=false;
+    $("#autoNote").textContent="(auto every 10 min)";
+  }
+}
+function udURL(){ return "https://api.underdogfantasy.com/v1/over_under_lines"+(state.udSport?`?sport_id=${encodeURIComponent(state.udSport)}`:""); }
+$("#udSport").addEventListener("change", e=>{ state.udSport=e.target.value; $("#udLink").href=udURL(); });
+$("#paste").addEventListener("input", e=>{ const t=e.target.value.trim(); if(t && ingest(t)) e.target.value=""; });
+$("#file").addEventListener("change", async e=>{ for(const f of e.target.files) ingest(await f.text()); e.target.value=""; });
+$("#auto").addEventListener("click", async ()=>{
+  setMsg("Trying...");
+  let ok=0;
+  for(const u of ["https://api.prizepicks.com/projections?per_page=10000&single_stat=true&game_mode=pickem", udURL()]){
+    try{ const r=await fetch(u); if(r.ok && ingest(await r.text())) ok++; }catch{}
+  }
+  if(!ok) setMsg("The apps blocked a direct load from this page. Use Open feed and paste instead.", true);
+});
+$("#clear").addEventListener("click", ()=>{
+  state.pp=state.ud=null; state.ppAt=state.udAt=null; state.demo=false;
+  store.set("lg:pp",null); store.set("lg:ud",null); setMsg("Cleared."); compute(); render();
+});
+$("#demo").addEventListener("click", ()=>{
+  const t=h=>new Date(Date.now()+h*3600e3).toISOString();
+  const P=(name,team,opp,stat,line,h)=>({name,match:`${team} vs ${opp}`,leagueRaw:"LoL",stat,line,start:t(h)});
+  const U=(name,stat,line,h,o=1,u=1)=>({id:name+stat,name,match:"",leagueRaw:"LOL",stat,line,start:t(h),overMult:o,underMult:u});
+  state.pp=[P("Haetae","T1.EA","GL","MAPS 1-3 Kills",10.5,15),P("DDoiV","DNS.C","SLY","MAPS 1-3 Kills",9,12),
+    P("Carlsen","GL","T1.EA","MAPS 1-3 Kills",9,15),P("Guti","T1.EA","GL","MAPS 1-3 Kills",15,15),
+    P("Lancer","DNS.C","SLY","MAPS 1-3 Kills",7.5,12),P("Enosh","DNS.C","SLY","MAPS 1-3 Kills",13.5,12),
+    P("Painter","T1.EA","GL","MAP 1 Kills",4.5,15)];
+  state.ud=[U("Haetae","Kills on Maps 1+2+3",9.5,15),U("DDoiV","Kills on Maps 1+2+3",8.5,12,1.03,0.88),
+    U("Carlsen","Kills on Maps 1+2+3",8.5,15),U("Guti","Kills on Maps 1+2+3",14.5,15),
+    U("Lancer","Kills on Maps 1+2+3",7.5,12),U("Enosh","Kills on Maps 1+2+3",14.5,12),U("Flip","Kills on Maps 1+2+3",11.5,12)];
+  state.ppAt=state.udAt=Date.now(); state.demo=true;
+  setMsg("Demo data loaded. Paste real feeds to replace it."); compute(); render();
+});
+
+/* ---------- Rendering ---------- */
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=n=>(Math.round(n*100)/100).toString();
+const fmtTime=s=>{ if(!s) return ""; const d=new Date(s); return isNaN(d)?"":d.toLocaleString([],{weekday:"short",hour:"numeric",minute:"2-digit"}).toUpperCase(); };
+const clock=ms=>new Date(ms).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",second:"2-digit"});
+
+const COLS = [
+  {k:"player", label:"Player", cls:""},
+  {k:"prop", label:"Prop", cls:"colProp"},
+  {k:"diff", label:"Diff", cls:"c"},
+  {k:"pp", label:'<span class="logo pp" aria-label="PrizePicks">P</span>', cls:"c"},
+  {k:"ud", label:'<span class="logo ud" aria-label="Underdog">U</span>', cls:"c"},
+];
+function renderHead(){
+  const sortable = state.view==="matched" ? ["player","prop","diff","pp","ud"] : ["player","prop"];
+  $("#head").innerHTML = COLS.map(c=>{
+    if(state.view!=="matched" && (c.k==="diff"||c.k==="ud"&&state.view==="pp"||c.k==="pp"&&state.view==="ud")) return `<div class="${c.cls}"></div>`;
+    const lineCol = state.view!=="matched" && (c.k==="pp"||c.k==="ud");
+    if(!sortable.includes(c.k) && !lineCol) return `<div class="${c.cls}">${c.label}</div>`;
+    const key = lineCol ? "line" : c.k;
+    const on = state.sortKey===key;
+    const arrow = on ? (state.sortDir<0?"▼":"▲") : "";
+    const extra = c.k==="diff" ? (state.mode==="pct"?" %":" #") : "";
+    return `<div class="${c.cls}"><button data-sort="${key}" aria-label="Sort by ${c.k}">${c.label}${extra}<span class="arrow">${arrow}</span></button></div>`;
+  }).join("");
+}
+
+function sortVal(x,k){
+  if(k==="diff") return state.mode==="num" ? x.absDiff : x.pct;
+  if(k==="player") return (x.player||x.name||"").toLowerCase();
+  if(k==="prop") return (x.stat||"").toLowerCase();
+  if(k==="pp") return x.pp.line;
+  if(k==="ud") return x.ud.line;
+  if(k==="line") return x.line;
+  return 0;
+}
+function currentRows(){
+  const R=state.result;
+  let r = state.view==="matched"?R.matched:state.view==="pp"?R.ppOnly:R.udOnly;
+  if(state.league!=="ALL") r=r.filter(x=>x.league===state.league);
+  if(state.q){ const q=state.q.toLowerCase(); r=r.filter(x=>(x.player||x.name||"").toLowerCase().includes(q)||(x.stat||"").toLowerCase().includes(q)||(x.match||"").toLowerCase().includes(q)); }
+  if(state.view==="matched") r=r.filter(x=>(state.mode==="num"?x.absDiff:x.pct)>=state.min);
+  let k=state.sortKey;
+  if(state.view!=="matched" && !["player","prop","line"].includes(k)) k="player";
+  const d=state.sortDir;
+  return [...r].sort((a,b)=>{
+    const A=sortVal(a,k), B=sortVal(b,k);
+    if(A<B) return -1*d; if(A>B) return 1*d;
+    return (a.player||a.name||"").localeCompare(b.player||b.name||"");
+  });
+}
+function who(name, x){
+  return `<div class="who">
+    <div class="nm"><b>${esc(name)}</b><span class="chip">${esc(x.league)}</span></div>
+    <div class="mt">${x.match?`<span>${esc(x.match)}</span>`:""}${x.start?`<i>${fmtTime(x.start)}</i>`:""}</div>
+    <div class="prop propM">${esc(x.stat)}</div>`;
+}
+function mult(u){
+  const o=u.overMult, l=u.underMult;
+  if((o==null||o===1)&&(l==null||l===1)) return "";
+  return `<span class="mult">H ${o??"-"}x L ${l??"-"}x</span>`;
+}
+function matchedRow(x){
+  return `<div class="grid r">
+    ${who(x.player,x)}</div>
+    <div class="prop colProp">${esc(x.stat)}${x.udStat&&x.udStat!==x.stat?`<small>UD: ${esc(x.udStat)}</small>`:""}</div>
+    <div class="c"><span class="pill diff ${x.absDiff===0?"zero":""}">${state.mode==="num"?fmt(x.absDiff):x.pct+"%"}</span></div>
+    <div class="c"><span class="pill pp ${x.lowSide==="pp"?"low":""}">${fmt(x.pp.line)}</span>${x.pp.promo?'<span class="mult">promo</span>':""}</div>
+    <div class="c"><span class="pill ud ${x.lowSide==="ud"?"low":""}">${fmt(x.ud.line)}</span>${mult(x.ud)}</div>
+  </div>`;
+}
+function soloRow(x){
+  const cell = `<div class="c"><span class="pill ${state.view}">${fmt(x.line)}</span></div>`;
+  return `<div class="grid r">
+    ${who(x.name,x)}<button class="key" data-key="${esc(x.key)}" title="Start a merge rule">${esc(x.key)}</button></div>
+    <div class="prop colProp">${esc(x.stat)}</div>
+    <div></div>
+    ${state.view==="pp"?cell:"<div></div>"}
+    ${state.view==="ud"?cell:"<div></div>"}
+  </div>`;
+}
+
+function render(){
+  $("#ppStatus").textContent = state.pp?`${state.pp.length.toLocaleString()} lines, loaded ${clock(state.ppAt)}${state.demo?" (demo)":""}`:"Not loaded";
+  $("#udStatus").textContent = state.ud?`${state.ud.length.toLocaleString()} lines, loaded ${clock(state.udAt)}${state.demo?" (demo)":""}`:"Not loaded";
+  const last=Math.max(state.ppAt||0,state.udAt||0);
+  $("#updated").textContent = last?`Last updated: ${clock(last)}`:"Not loaded yet";
+
+  const b=[];
+  if(state.workerFail) b.push(`Couldn't reach the worker: ${esc(state.workerFail)}. Use Load manually for now.`);
+  if(state.workerErrors?.pp) b.push(`PrizePicks auto-pull failed: ${esc(state.workerErrors.pp)}${state.pp?" Showing the last good lines.":""}`);
+  if(state.workerErrors?.ud) b.push(`Underdog auto-pull failed: ${esc(state.workerErrors.ud)}${state.ud?" Showing the last good lines.":""}`);
+  $("#banners").innerHTML=b.map(t=>`<div class="banner">${t}</div>`).join("");
+  const stale = [state.ppAt,state.udAt].some(t=>t && Date.now()-t>30*60*1000);
+  $("#updated").style.color = stale ? "var(--warnText)" : "";
+
+  const R=state.result;
+  const n={matched:R.matched.length,pp:R.ppOnly.length,ud:R.udOnly.length};
+  const labels={matched:"Matched",pp:"PrizePicks only",ud:"Underdog only"};
+  document.querySelectorAll("#tabs button").forEach(b=>{ b.textContent=`${labels[b.dataset.v]} (${n[b.dataset.v]})`; b.setAttribute("aria-pressed",b.dataset.v===state.view); });
+  document.querySelectorAll("#mode button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===state.mode));
+
+  const pool=state.view==="matched"?R.matched:state.view==="pp"?R.ppOnly:R.udOnly;
+  const leagues=[...new Set(pool.map(x=>x.league))].sort();
+  if(state.league!=="ALL"&&!leagues.includes(state.league)) state.league="ALL";
+  $("#league").innerHTML=["ALL",...leagues].map(l=>`<option value="${esc(l)}"${l===state.league?" selected":""}>${esc(l)}</option>`).join("");
+
+  renderHead();
+  const rows=currentRows();
+  $("#count").textContent = rows.length ? `${rows.length} row${rows.length===1?"":"s"}` : "";
+  if(!rows.length){
+    let msg;
+    if(!state.pp||!state.ud) msg = WORKER_URL ? "Waiting on lines from the worker." : "Load both feeds to compare lines. Tap Load manually.";
+    else if(state.view!=="matched") msg="Nothing unmatched here.";
+    else if(n.matched) msg="Nothing matches these filters. Lower the min gap or clear the search.";
+    else msg=state.scope==="esports"?"No esports lines matched. Try All sports, or check the unmatched views.":"No lines matched. Check the unmatched views.";
+    $("#list").innerHTML=`<div class="empty">${msg}</div>`; return;
+  }
+  $("#list").innerHTML=rows.map(state.view==="matched"?matchedRow:soloRow).join("");
+}
+
+/* ---------- Controls ---------- */
+$("#mode").addEventListener("click", e=>{
+  const v=e.target.closest("button")?.dataset.v; if(!v) return;
+  state.mode=v; state.sortKey="diff"; state.sortDir=-1; render();
+});
+$("#scope").addEventListener("click", e=>{
+  const v=e.target.closest("button")?.dataset.v; if(!v) return;
+  state.scope=v; $("#scope").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===v));
+  compute(); render();
+});
+$("#tabs").addEventListener("click", e=>{ const v=e.target.closest("button")?.dataset.v; if(v){ state.view=v; render(); } });
+$("#head").addEventListener("click", e=>{
+  const k=e.target.closest("button")?.dataset.sort; if(!k) return;
+  if(state.sortKey===k) state.sortDir*=-1;
+  else { state.sortKey=k; state.sortDir = (k==="player"||k==="prop") ? 1 : -1; }
+  render();
+});
+$("#league").addEventListener("change", e=>{ state.league=e.target.value; render(); });
+$("#q").addEventListener("input", e=>{ state.q=e.target.value.trim(); render(); });
+$("#min").addEventListener("input", e=>{ state.min=parseFloat(e.target.value)||0; render(); });
+function toggleManual(){ const p=$("#loadPanel"); p.hidden=!p.hidden; if(!p.hidden) p.scrollIntoView({block:"nearest"}); }
+$("#toggleLoad").addEventListener("click", ()=>{ WORKER_URL ? loadFromWorker(true) : toggleManual(); });
+$("#manual").addEventListener("click", toggleManual);
+$("#toggleAlias").addEventListener("click", ()=>{ const p=$("#aliasPanel"); p.hidden=!p.hidden; });
+
+function applyAliases(text){ const {m,n}=parseAliases(text); ALIAS=m; $("#aliasCount").textContent=`${n} rule${n===1?"":"s"}`; }
+$("#aliasSave").addEventListener("click", ()=>{
+  const t=$("#aliasBox").value; applyAliases(t); store.set("lg:aliases",t); compute(); render();
+  $("#aliasMsg").textContent=`Saved. ${state.result.matched.length} matched now.`;
+});
+$("#list").addEventListener("click", e=>{
+  const k=e.target.closest(".key"); if(!k) return;
+  const box=$("#aliasBox");
+  box.value=(box.value.trim()?box.value.trimEnd()+"\n":"")+`${k.dataset.key} => `;
+  $("#aliasPanel").hidden=false; box.focus(); box.setSelectionRange(box.value.length,box.value.length);
+  box.scrollIntoView({block:"center"});
+});
+
+/* ---------- Boot ---------- */
+(function boot(){
+  const a=store.get("lg:aliases"); if(a){ $("#aliasBox").value=a; applyAliases(a); }
+  const pp=store.get("lg:pp"); if(pp?.rows){ state.pp=pp.rows; state.ppAt=pp.at; }
+  const ud=store.get("lg:ud"); if(ud?.rows){ state.ud=ud.rows; state.udAt=ud.at; }
+  if(state.pp&&state.ud || WORKER_URL) $("#loadPanel").hidden=true;
+  compute(); render();
+  if(WORKER_URL){
+    $("#autoNote").textContent="(auto every 10 min)";
+    loadFromWorker(false);
+    autoTimer=setInterval(()=>loadFromWorker(false), AUTO_MS);
+    document.addEventListener("visibilitychange", ()=>{
+      // catch up when you come back to the tab after it's been asleep
+      if(document.visibilityState==="visible" && Date.now()-Math.max(state.ppAt||0,state.udAt||0) > AUTO_MS) loadFromWorker(false);
+    });
+  }
+})();
+</script>
+</body>
+</html>
